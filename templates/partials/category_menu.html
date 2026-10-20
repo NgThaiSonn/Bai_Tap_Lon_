@@ -1,0 +1,17 @@
+<aside class="store-sidebar" aria-label="Danh mục sản phẩm">
+  <div class="store-sidebar-heading">Sản phẩm <span aria-hidden="true">⌄</span></div>
+  <ul class="store-menu-list">
+    {% for item in store_menu %}
+    <li class="store-menu-item">
+      <button class="store-menu-trigger" type="button" aria-expanded="false"><span>{{ item.category.name }}</span><span aria-hidden="true">›</span></button>
+      <div class="store-mega">
+        <div class="store-mega-top"><div><span class="store-eyebrow">Danh mục sản phẩm</span><h2>{{ item.category.name }}</h2><p>{{ item.category.description }}</p></div><a class="store-all-link" href="{{ item.category.get_absolute_url }}">Xem tất cả sản phẩm <span aria-hidden="true">→</span></a></div>
+        <div class="store-mega-groups">
+          {% for group in item.groups %}<section class="store-mega-group"><h3>{{ group.title }}</h3><ul>{% for link in group.links %}<li><a href="{{ link.url }}">{{ link.label }}<span aria-hidden="true">›</span></a></li>{% endfor %}</ul></section>
+          {% empty %}<section class="store-mega-group"><ul><li><a href="{{ item.category.get_absolute_url }}">Xem tất cả {{ item.category.name }}<span aria-hidden="true">›</span></a></li></ul></section>{% endfor %}
+        </div>
+      </div>
+    </li>
+    {% endfor %}
+  </ul>
+</aside>

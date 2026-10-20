@@ -1,0 +1,92 @@
+{% extends "base.html" %}
+{% load shop_extras %}
+{% block title %}Giỏ hàng · PCShop{% endblock %}
+{% block content %}
+<section class="cart-page">
+  <nav class="cart-breadcrumb" aria-label="Đường dẫn">
+    <a href="{% url 'catalog:home' %}">Trang chủ</a>
+    <span aria-hidden="true">›</span>
+    <strong>Giỏ hàng của bạn</strong>
+  </nav>
+  <div id="cart-alert" class="alert alert-danger d-none" role="alert"></div>
+  {% if lines %}
+  <div class="cart-layout">
+    <section class="cart-main-panel" aria-label="Sản phẩm trong giỏ hàng">
+      <div class="cart-table-header">
+        <label class="cart-header-product" for="cart-select-all">
+          <input id="cart-select-all" class="cart-check-input" type="checkbox" checked aria-label="Chọn tất cả sản phẩm">
+          <span>Tất cả (<span id="cart-selected-count">{{ lines|length }}</span>/<span id="cart-line-count">{{ lines|length }}</span>) sản phẩm</span>
+        </label>
+        <span>Đơn giá</span><span>Số lượng</span><span>Thành tiền</span><span aria-hidden="true"></span>
+      </div>
+      <div class="cart-item-list">
+        {% for l in lines %}
+        <article class="cart-item-row{% if not l.available %} is-unavailable{% endif %}"
+                 data-product-id="{{ l.product.pk }}" data-subtotal="{{ l.subtotal|floatformat:'0' }}"
+                 data-available="{{ l.available|yesno:'true,false' }}">
+          <div class="cart-product-cell">
+            <input class="cart-check-input cart-select-item" type="checkbox" checked
+                   aria-label="Chọn {{ l.product.name }}" data-product-id="{{ l.product.pk }}">
+            <a class="cart-product-image" href="{{ l.product.get_absolute_url }}">
+              <img src="{{ l.product.image_src }}" alt="{{ l.product.name }}" loading="lazy">
+            </a>
+            <div class="cart-product-info">
+              <a class="cart-product-name" href="{{ l.product.get_absolute_url }}">{{ l.product.name }}</a>
+              <div class="cart-product-code">Mã sản phẩm: #{{ l.product.pk }}</div>
+              {% if not l.available %}<div class="cart-stock-warning">Chỉ còn {{ l.product.stock }} sản phẩm trong kho. Vui lòng điều chỉnh số lượng.</div>{% endif %}
+            </div>
+          </div>
+          <div class="cart-unit-price">{{ l.product.price|vnd }}</div>
+          <div class="cart-quantity-stepper" aria-label="Điều chỉnh số lượng">
+            <button class="cart-qty-step" type="button" data-step="-1" aria-label="Giảm số lượng">−</button>
+            <input type="number" class="cart-qty" min="1" max="{{ l.product.stock }}" value="{{ l.quantity }}"
+                   data-prev="{{ l.quantity }}" data-product-id="{{ l.product.pk }}" aria-label="Số lượng {{ l.product.name }}">
+            <button class="cart-qty-step" type="button" data-step="1" aria-label="Tăng số lượng">+</button>
+          </div>
+          <strong class="line-subtotal cart-line-subtotal">{{ l.subtotal|vnd }}</strong>
+          <form method="post" action="{% url 'orders:cart_remove' %}" class="cart-delete-form">
+            {% csrf_token %}
+            <input type="hidden" name="product_id" value="{{ l.product.pk }}">
+            <button type="submit" class="cart-remove-btn" data-product-id="{{ l.product.pk }}"
+                    aria-label="Xóa {{ l.product.name }}" title="Xóa sản phẩm"><svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path d="M4 7h16M10 11v6m4-6v6M6 7l1 14h10l1-14M9 7V4h6v3" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+          </form>
+        </article>
+        {% endfor %}
+      </div>
+      <section class="cart-gift-panel" aria-label="Ưu đãi sản phẩm">
+        <div class="cart-gift-heading"><span aria-hidden="true">🎁</span><strong>Quà tặng & ưu đãi</strong></div>
+        <p>Chưa có quà tặng áp dụng cho sản phẩm trong giỏ hàng.</p>
+      </section>
+      <div class="cart-continue-row">
+        <a href="{% url 'catalog:product_list' %}" class="cart-continue-link">← Tiếp tục mua sắm</a>
+        {% if has_problem %}<span class="cart-stock-note">Có sản phẩm cần kiểm tra lại số lượng tồn kho.</span>{% endif %}
+      </div>
+    </section>
+    <aside class="cart-sidebar">
+      <section class="cart-voucher-card">
+        <div class="cart-voucher-icon" aria-hidden="true">▣</div>
+        <div class="cart-voucher-copy"><strong>Voucher giảm giá</strong><span>Hãy áp dụng để tiết kiệm</span></div>
+        <button type="button" class="cart-voucher-button" data-voucher-toggle aria-expanded="false" aria-controls="cart-voucher-note">Chọn mã</button>
+        <p id="cart-voucher-note" class="cart-voucher-note" hidden>Chưa có mã giảm giá khả dụng.</p>
+      </section>
+      <section class="cart-summary-card">
+        <h2>Thông tin đơn hàng</h2>
+        <div class="cart-summary-row"><span>Tổng tiền sản phẩm</span><strong id="cart-total">{{ total|vnd }}</strong></div>
+        <div class="cart-summary-row cart-summary-payable"><span>Cần thanh toán</span><strong id="cart-payable">{{ total|vnd }}</strong></div>
+        <p class="cart-vat-note">(Đã bao gồm VAT)</p>
+        <a id="cart-checkout-btn" class="cart-checkout-button" href="{% url 'orders:checkout' %}"
+           data-checkout-url="{% url 'orders:checkout' %}"><span aria-hidden="true">▣</span> Tiến hành đặt hàng</a>
+        <button type="button" class="cart-installment-button" disabled><span aria-hidden="true">▤</span> Mua trả góp</button>
+      </section>
+    </aside>
+  </div>
+  {% else %}
+  <section class="cart-empty-state">
+    <div class="cart-empty-icon" aria-hidden="true">🛒</div>
+    <h1>Chưa có sản phẩm nào trong giỏ hàng</h1>
+    <p>Cùng mua sắm sản phẩm tại PCShop nhé!</p>
+    <a href="{% url 'catalog:product_list' %}" class="cart-empty-cta">Mua hàng</a>
+  </section>
+  {% endif %}
+</section>
+{% endblock %}

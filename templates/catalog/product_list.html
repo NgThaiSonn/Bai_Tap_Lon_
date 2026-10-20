@@ -1,0 +1,291 @@
+{% extends "base.html" %}
+{% load shop_extras %}
+
+{% block title %}
+  {% if category %}{{ category.name }}{% else %}Linh kiện PC{% endif %} · PCShop
+{% endblock %}
+
+{% block content %}
+  <nav aria-label="breadcrumb">
+    <ol class="breadcrumb mb-3">
+      <li class="breadcrumb-item">
+        <a href="{% url 'catalog:home' %}">Trang chủ</a>
+      </li>
+      <li class="breadcrumb-item active">
+        {% if category %}{{ category.name }}{% else %}Sản phẩm{% endif %}
+      </li>
+    </ol>
+  </nav>
+
+  <header class="catalog-heading d-flex flex-wrap justify-content-between align-items-end gap-3 mb-4">
+    <div>
+      <div class="text-uppercase small fw-bold text-danger mb-1">Khám phá cửa hàng</div>
+      <h1 class="h2 fw-bold mb-1">
+        {% if category %}{{ category.name }}{% else %}Tất cả sản phẩm{% endif %}
+      </h1>
+      <p class="text-secondary mb-0">
+        Tìm đúng sản phẩm theo nhu cầu, thương hiệu và ngân sách.
+      </p>
+    </div>
+    <div class="product-toolbar text-secondary small">
+      <strong>{{ page_obj.paginator.count }}</strong> sản phẩm
+    </div>
+  </header>
+
+  {% if kind_options and category.slug != "laptop" %}
+    <section class="catalog-shortcuts mb-3" aria-label="Danh mục con">
+      <div class="catalog-strip-label">
+        {% if is_component_category %}Chọn nhóm linh kiện{% else %}Danh mục con{% endif %}
+      </div>
+      <div class="catalog-chip-row">
+        {% for item in kind_links %}
+          <a
+            class="catalog-chip {% if active_kind == item.kind %}active{% endif %}"
+            href="?{{ item.query }}"
+          >
+            {{ item.label }}
+            <span aria-hidden="true">↗</span>
+          </a>
+        {% endfor %}
+      </div>
+    </section>
+  {% endif %}
+
+  {% if brand_links and show_filter_panel and category.slug != "pc-gaming" %}
+    <section class="brand-strip mb-3" aria-label="Thương hiệu phổ biến">
+      <div class="catalog-strip-label">Thương hiệu phổ biến</div>
+      <div class="brand-chip-row">
+        {% for item in brand_links %}
+          <a
+            class="brand-chip {% if filters.brand|lower == item.name|lower %}active{% endif %}"
+            href="?{{ item.query }}"
+          >
+            {{ item.name }}
+          </a>
+        {% endfor %}
+      </div>
+    </section>
+  {% endif %}
+
+  {% if show_filter_panel %}
+    <form
+      method="get"
+      class="catalog-filter-panel mb-4 {% if category.slug == 'laptop' %}laptop-filter-panel{% endif %}"
+    >
+    <input type="hidden" name="q" value="{{ filters.q }}">
+    {% if category.slug == "laptop" %}
+      <input type="hidden" name="brand" value="{{ filters.brand }}">
+    {% endif %}
+    {% if is_component_category %}
+      <input type="hidden" name="kind" value="{{ active_kind }}">
+    {% endif %}
+
+    <div class="filter-panel-heading">
+      <div>
+        <span class="catalog-strip-label">
+          {% if is_component_category %}
+            Linh kiện PC · {{ active_kind_label }}
+          {% elif category.slug == "laptop" %}
+            Laptop · lọc theo tiêu chí
+          {% else %}
+            Tinh chỉnh kết quả
+          {% endif %}
+        </span>
+        <h2>
+          {% if is_component_category or category.slug == "laptop" %}
+            Chọn theo tiêu chí
+          {% else %}
+            Bộ lọc sản phẩm
+          {% endif %}
+        </h2>
+      </div>
+      <a
+        href="{% if category %}{{ category.get_absolute_url }}{% else %}{% url 'catalog:product_list' %}{% endif %}"
+        class="filter-reset"
+      >
+        Xóa bộ lọc
+      </a>
+    </div>
+
+    {% if price_error %}
+      <div class="alert alert-warning py-2 small" role="alert">{{ price_error }}</div>
+    {% endif %}
+
+    <div class="catalog-filter-grid{% if category.slug == 'laptop' %} laptop-filter-grid{% endif %}">
+      {% if kind_options and category.slug != "laptop" and not is_component_category %}
+        <label class="filter-control">
+          <span>Loại sản phẩm</span>
+          <select name="kind" class="form-select">
+            <option value="">Tất cả</option>
+            {% for label, kind in kind_options %}
+              <option value="{{ kind }}" {% if filters.kind == kind %}selected{% endif %}>
+                {{ label }}
+              </option>
+            {% endfor %}
+          </select>
+        </label>
+      {% endif %}
+
+      {% if category.slug != "laptop" and category.slug != "pc-gaming" %}
+        <label class="filter-control">
+          <span>Thương hiệu</span>
+          <select name="brand" class="form-select">
+            <option value="">Tất cả thương hiệu</option>
+            {% for brand in brands %}
+              <option value="{{ brand }}" {% if filters.brand|lower == brand|lower %}selected{% endif %}>
+                {{ brand }}
+              </option>
+            {% endfor %}
+          </select>
+        </label>
+      {% endif %}
+
+      {% for group in spec_filter_groups %}
+        <label class="filter-control">
+          <span>{{ group.label }}</span>
+          <select name="{{ group.name }}" class="form-select">
+            <option value="">{{ group.label }}</option>
+            {% for option in group.options %}
+              {% if group.paired_options %}
+                <option
+                  value="{{ option.1 }}"
+                  {% if filters|get_item:group.name == option.1 %}selected{% endif %}
+                >
+                  {{ option.0 }}
+                </option>
+              {% elif group.name == "touch" %}
+                <option
+                  value="{{ option.1 }}"
+                  {% if filters|get_item:group.name == option.1 %}selected{% endif %}
+                >
+                  {{ option.0 }}
+                </option>
+              {% else %}
+                <option
+                  value="{{ option }}"
+                  {% if filters|get_item:group.name == option %}selected{% endif %}
+                >
+                  {{ option }}
+                </option>
+              {% endif %}
+            {% endfor %}
+          </select>
+        </label>
+
+        {% if category.slug == "laptop" and group.name == "gpu" %}
+          <label class="filter-control">
+            <span>Phân loại Laptop</span>
+            <select name="kind" class="form-select">
+              <option value="">Phân loại Laptop</option>
+              {% for label, kind in kind_options %}
+                <option value="{{ kind }}" {% if filters.kind == kind %}selected{% endif %}>
+                  {{ label }}
+                </option>
+              {% endfor %}
+            </select>
+          </label>
+        {% endif %}
+      {% endfor %}
+
+      <label class="filter-control laptop-extra-filter">
+        <span>{% if category.slug == "laptop" %}Giá{% else %}Khoảng giá{% endif %}</span>
+        <select name="price_range" class="form-select">
+          <option value="">Tất cả giá</option>
+          {% for value, label, minimum, maximum in price_range_options %}
+            <option value="{{ value }}" {% if filters.price_range == value %}selected{% endif %}>
+              {{ label }}
+            </option>
+          {% endfor %}
+        </select>
+      </label>
+
+      <label class="filter-control">
+        <span>Sắp xếp</span>
+        <select name="sort" class="form-select">
+          {% for value, label in sort_options %}
+            <option value="{{ value }}" {% if filters.sort == value %}selected{% endif %}>
+              {{ label }}
+            </option>
+          {% endfor %}
+        </select>
+      </label>
+
+      <label class="filter-stock">
+        <input
+          class="form-check-input"
+          type="checkbox"
+          name="in_stock"
+          value="1"
+          id="in_stock"
+          {% if filters.in_stock %}checked{% endif %}
+        >
+        <span>Hàng sẵn</span>
+      </label>
+    </div>
+
+    <details class="custom-price">
+      <summary>Tùy chỉnh khoảng giá</summary>
+      <div class="d-flex gap-2 mt-2">
+        <input
+          type="number"
+          min="0"
+          name="min_price"
+          class="form-control"
+          placeholder="Giá từ (VNĐ)"
+          value="{{ filters.min_price }}"
+        >
+        <input
+          type="number"
+          min="0"
+          name="max_price"
+          class="form-control"
+          placeholder="Giá đến (VNĐ)"
+          value="{{ filters.max_price }}"
+        >
+      </div>
+    </details>
+
+    <div class="filter-panel-actions">
+      <span class="text-secondary small">
+        Có {{ page_obj.paginator.count }} sản phẩm phù hợp
+      </span>
+      <button class="btn btn-danger px-4" type="submit">Áp dụng bộ lọc</button>
+    </div>
+    </form>
+  {% endif %}
+
+  <div class="product-results-heading">
+    <h2>
+      {% if is_component_category and active_kind_label %}
+        {{ active_kind_label }}
+      {% else %}
+        Sản phẩm{% if category %} {{ category.name }}{% endif %}
+      {% endif %}
+    </h2>
+    <span>{{ page_obj.paginator.count }} kết quả</span>
+  </div>
+
+  <div class="row g-3">
+    {% for product in page_obj %}
+      {% with p=product %}
+        {% include "partials/product_card.html" %}
+      {% endwith %}
+    {% empty %}
+      <div class="col-12">
+        <div class="card card-body text-center py-5">
+          <div class="category-icon mx-auto mb-3">⌕</div>
+          <h2 class="h5 fw-bold">Chưa tìm thấy sản phẩm</h2>
+          <p class="text-secondary mb-3">Thử thay đổi bộ lọc hoặc từ khóa tìm kiếm.</p>
+          <a
+            class="btn btn-outline-dark align-self-center"
+            href="{% if category %}{{ category.get_absolute_url }}{% else %}{% url 'catalog:product_list' %}{% endif %}"
+          >
+            Xóa bộ lọc
+          </a>
+        </div>
+      </div>
+    {% endfor %}
+  </div>
+
+  {% include "partials/pagination.html" %}
+{% endblock %}

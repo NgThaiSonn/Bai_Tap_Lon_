@@ -1,0 +1,14 @@
+{% load shop_extras %}
+<div class="col-6 col-md-4 col-lg-3 col-xxl-2">
+  <article class="card h-100 product-card shadow-sm">
+    <a href="{{ p.get_absolute_url }}" aria-label="Xem {{ p.name }}"><img src="{{ p.image_src }}" class="card-img-top" alt="{{ p.name }}" loading="lazy"></a>
+    <div class="card-body d-flex flex-column">
+      <div class="small text-muted">{{ p.category.name }} <span aria-hidden="true">·</span> {{ p.brand }}</div>
+      <h3 class="card-title"><a class="text-decoration-none text-dark" href="{{ p.get_absolute_url }}">{{ p.name }}</a></h3>
+      <div class="price mb-2">{{ p.price|vnd }}</div>
+      {% if p.in_stock %}<span class="badge bg-success-subtle text-success-emphasis align-self-start mb-3">Còn hàng · {{ p.stock }}</span>{% else %}<span class="badge bg-secondary-subtle text-secondary-emphasis align-self-start mb-3">Tạm hết hàng</span>{% endif %}
+      <form method="post" action="{% url 'orders:cart_add' %}" class="mt-auto">{% csrf_token %}<input type="hidden" name="product_id" value="{{ p.pk }}"><input type="hidden" name="quantity" value="1"><button class="btn btn-sm btn-danger w-100" {% if not p.in_stock %}disabled{% endif %}>{% if p.in_stock %}Thêm vào giỏ{% else %}Hết hàng{% endif %}</button></form>
+      <button type="button" class="product-compare-button" data-compare-toggle data-product-id="{{ p.pk }}" aria-pressed="false"><span aria-hidden="true">⇄</span> So sánh</button>
+    </div>
+  </article>
+</div>

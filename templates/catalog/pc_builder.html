@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+{% load shop_extras %}
+{% block title %}Tự xây dựng PC · PCShop{% endblock %}
+{% block content %}
+<section class="pc-builder-page">
+  <nav aria-label="breadcrumb"><ol class="breadcrumb mb-3"><li class="breadcrumb-item"><a href="{% url 'catalog:home' %}">Trang chủ</a></li><li class="breadcrumb-item active">Tự xây dựng PC</li></ol></nav>
+  <header class="builder-hero"><span class="text-uppercase small fw-bold">PCShop · PC Builder</span><h1>Tự xây dựng cấu hình PC</h1><p>Chọn các linh kiện và kiểm tra socket CPU, chuẩn RAM cùng công suất nguồn trước khi thêm vào giỏ.</p></header>
+  <form method="post" class="builder-form">{% csrf_token %}
+    <div class="builder-component-grid">
+      {% for group in component_groups %}
+      <label class="builder-component">
+        <span>{{ group.label }}</span>
+        <select name="{{ group.key }}" class="form-select">
+          <option value="">Chọn {{ group.label }}</option>
+          {% for p in group.products %}<option value="{{ p.pk }}" {% if group.selected_id == p.pk %}selected{% endif %}>{{ p.name }} · {{ p.price|vnd }}</option>{% endfor %}
+        </select>
+        {% if not group.products %}<small>Chưa có linh kiện này trong dữ liệu cửa hàng.</small>{% endif %}
+      </label>
+      {% endfor %}
+    </div>
+    <div class="builder-actions">
+      <button class="btn btn-outline-dark" type="submit" name="action" value="check">Kiểm tra tương thích</button>
+      <button class="btn btn-danger" type="submit" name="action" value="add">Thêm cấu hình vào giỏ</button>
+    </div>
+  </form>
+  {% if checked %}
+  <section class="builder-results" aria-live="polite">
+    <div class="builder-diagnostics">
+      {% for note in diagnostics %}
+      <div class="builder-note is-{{ note.level }}"><span aria-hidden="true">{% if note.level == "success" %}✓{% elif note.level == "danger" %}!{% elif note.level == "warning" %}⚠{% else %}ⓘ{% endif %}</span>{{ note.text }}</div>
+      {% endfor %}
+    </div>
+    {% if selected %}
+    <div class="builder-summary">
+      <h2>Linh kiện đã chọn <span>{{ selected|length }}</span></h2>
+      <ul>{% for p in selected %}<li><a href="{{ p.get_absolute_url }}">{{ p.name }}</a><strong>{{ p.price|vnd }}</strong></li>{% endfor %}</ul>
+      <div class="builder-total"><span>Tổng giá tham khảo</span><strong>{{ total|vnd }}</strong></div>
+      <p>Giá và tình trạng tồn kho có thể thay đổi khi đặt hàng.</p>
+    </div>
+    {% endif %}
+  </section>
+  {% endif %}
+</section>
+{% endblock %}

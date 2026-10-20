@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+{% block title %}PCShop · Linh kiện máy tính chính hãng{% endblock %}
+{% block content %}
+<div class="home-feature-layout">
+  <div class="home-feature-sidebar">{% include "partials/category_menu.html" %}</div>
+  <div class="home-feature-main">
+<section class="hero">
+  <div class="hero-content">
+    <div class="hero-kicker mb-3">PCShop · Build your setup</div>
+    <h1 class="display-5 mb-3">Nâng cấp góc máy, bứt phá hiệu năng.</h1>
+    <p class="lead mb-4">Khám phá linh kiện PC chính hãng với thông số rõ ràng, giá minh bạch và tồn kho được cập nhật liên tục.</p>
+    <div class="d-flex flex-wrap gap-2"><a class="btn btn-danger btn-lg" href="{% url 'catalog:product_list' %}">Khám phá sản phẩm <span aria-hidden="true">→</span></a><a class="btn btn-outline-light btn-lg" href="#danh-muc">Xem danh mục</a></div>
+  </div>
+</section>
+<div class="trust-strip row g-3 mb-4">
+  <div class="col-6 col-lg-3"><div class="trust-item"><span class="category-icon">✓</span><span>Hàng chính hãng<small>Nguồn gốc minh bạch</small></span></div></div>
+  <div class="col-6 col-lg-3"><div class="trust-item"><span class="category-icon">₫</span><span>Giá cạnh tranh<small>Cập nhật theo sản phẩm</small></span></div></div>
+  <div class="col-6 col-lg-3"><div class="trust-item"><span class="category-icon">↗</span><span>Đặt hàng dễ dàng<small>Theo dõi trạng thái đơn</small></span></div></div>
+  <div class="col-6 col-lg-3"><div class="trust-item"><span class="category-icon">⚙</span><span>Tư vấn cấu hình<small>Thông số chi tiết, dễ tra cứu</small></span></div></div>
+</div>
+  </div>
+</div>
+<section id="danh-muc">
+  <div class="section-heading"><div><div class="text-uppercase small fw-bold text-danger mb-1">Chọn nhanh</div><h2>Danh mục sản phẩm</h2></div><a class="small fw-semibold text-decoration-none" href="{% url 'catalog:product_list' %}">Tất cả sản phẩm →</a></div>
+  <div class="row g-2 mb-4">
+    {% for c in categories %}<div class="col-6 col-md-4 col-lg-3"><a class="category-tile" href="{{ c.get_absolute_url }}"><span>{{ c.name }}</span><span class="category-icon" aria-hidden="true">↗</span></a></div>{% empty %}<div class="col-12 text-muted">Danh mục đang được cập nhật.</div>{% endfor %}
+  </div>
+</section>
+{% for section in category_sections %}
+<section class="category-shelf" id="{{ section.category.slug }}">
+  <div class="section-heading">
+    <div><div class="text-uppercase small fw-bold text-danger mb-1">Khám phá theo danh mục</div><h2>{{ section.category.name }}</h2><p class="small text-secondary mt-2 mb-0">{{ section.category.description }}</p></div>
+    <a class="btn btn-sm btn-outline-dark flex-shrink-0" href="{{ section.category.get_absolute_url }}">Xem tất cả <span aria-hidden="true">→</span></a>
+  </div>
+  <div class="row g-3 category-product-grid">
+    {% for p in section.products %}{% include "partials/product_card.html" %}{% empty %}<div class="col-12"><div class="card card-body text-muted">Sản phẩm đang được cập nhật.</div></div>{% endfor %}
+  </div>
+</section>
+{% endfor %}
+{% endblock %}

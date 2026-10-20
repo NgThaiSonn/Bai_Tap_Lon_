@@ -1,0 +1,149 @@
+{% extends "base.html" %}
+{% load shop_extras %}
+{% block title %}{{ product.name }} · PCShop{% endblock %}
+{% block content %}
+<nav aria-label="breadcrumb" class="product-detail-breadcrumb">
+  <ol class="breadcrumb">
+    <li class="breadcrumb-item"><a href="{% url 'catalog:home' %}">⌂ Trang chủ</a></li>
+    <li class="breadcrumb-item"><a href="{{ product.category.get_absolute_url }}">{{ product.category.name }}</a></li>
+    <li class="breadcrumb-item active" aria-current="page">{{ product.name }}</li>
+  </ol>
+</nav>
+
+<section class="product-detail-layout" aria-label="Chi tiết sản phẩm">
+  <div class="product-gallery">
+    <div class="product-gallery-thumbnails">
+      <button class="product-gallery-thumb is-active" type="button" aria-label="Xem ảnh sản phẩm" aria-pressed="true" data-gallery-thumb="{{ product.image_src }}">
+        <img src="{{ product.image_src }}" alt="Ảnh thu nhỏ {{ product.name }}">
+      </button>
+    </div>
+    <div class="product-gallery-stage">
+      <img id="product-gallery-main" src="{{ product.image_src }}" alt="{{ product.name }}" fetchpriority="high">
+      <span class="product-image-caption">Ảnh sản phẩm</span>
+    </div>
+  </div>
+
+  <div class="product-detail-info">
+    <p class="product-detail-kicker">{{ product.category.name }}</p>
+    <h1>{{ product.name }}</h1>
+    <div class="product-detail-meta">
+      <span><strong>Mã SP:</strong> #{{ product.pk }}</span>
+      <span class="detail-meta-separator" aria-hidden="true"></span>
+      <span><strong>Đánh giá:</strong> <span class="stars">{{ product.average_rating|stars }}</span> {{ product.average_rating }}/5</span>
+      <span class="detail-meta-separator" aria-hidden="true"></span>
+      <a href="#product-reviews">{{ product.review_count }} đánh giá</a>
+    </div>
+
+    {% if product.specifications %}
+    <details class="product-specs-card" open>
+      <summary>
+        <span>Thông số sản phẩm</span>
+        <span class="product-specs-toggle-label">Thu gọn</span>
+      </summary>
+      <div class="product-specs-list">
+        {% for key, value in product.specifications.items %}
+          {% if key != "Nguồn tham khảo" %}
+          <div class="product-spec-row">
+            <span class="product-spec-bullet">-</span>
+            <span><strong>{{ key }}:</strong> {{ value }}</span>
+          </div>
+          {% endif %}
+        {% endfor %}
+      </div>
+    </details>
+    {% endif %}
+
+    <section class="product-price-panel" aria-label="Giá sản phẩm">
+      <span class="product-price-label">Giá bán</span>
+      <div class="product-price-value">{{ product.price|vnd }}</div>
+    </section>
+
+    <section class="product-stock-panel" aria-label="Tình trạng hàng">
+      <div class="product-stock-heading">
+        <span class="product-stock-dot {% if not product.in_stock %}is-out{% endif %}"></span>
+        {% if product.in_stock %}<strong>Còn hàng</strong>{% else %}<strong>Tạm hết hàng</strong>{% endif %}
+      </div>
+      {% if product.in_stock %}<span>Còn {{ product.stock }} sản phẩm</span>{% else %}<span>Sản phẩm hiện chưa có sẵn trong kho.</span>{% endif %}
+    </section>
+
+    <form method="post" action="{% url 'orders:cart_add' %}" class="product-purchase-form">
+      {% csrf_token %}
+      <input type="hidden" name="product_id" value="{{ product.pk }}">
+      <label for="detail-qty">Số lượng</label>
+      <div class="product-purchase-controls">
+        <input type="number" id="detail-qty" name="quantity" value="1" min="1" max="{{ product.stock|default:1 }}" class="form-control qty-input" data-product-id="{{ product.pk }}" {% if not product.in_stock %}disabled{% endif %}>
+        <button id="add-btn" class="btn btn-danger product-add-button" {% if not product.in_stock %}disabled{% endif %}>
+          <span aria-hidden="true">🛒</span> Thêm vào giỏ hàng
+        </button>
+      </div>
+      <div id="stock-msg" class="small mt-2"></div>
+    </form>
+    <button type="button" class="product-compare-button product-detail-compare" data-compare-toggle data-product-id="{{ product.pk }}" aria-pressed="false"><span aria-hidden="true">⇄</span> Thêm vào so sánh</button>
+
+  </div>
+</section>
+
+{% if product.description and "HACOM" not in product.description %}
+<section class="product-detail-section">
+  <h2>Thông tin sản phẩm</h2>
+  <p>{{ product.description }}</p>
+</section>
+{% endif %}
+
+<section id="product-reviews" class="product-detail-section">
+  <div class="product-section-heading">
+    <h2>Đánh giá của khách hàng</h2>
+    <span class="stars">{{ product.average_rating|stars }}</span>
+  </div>
+  {% if can_review %}
+  <form method="post" action="{% url 'catalog:review_submit' product.slug %}" class="card card-body mb-3">{% csrf_token %}
+    {% include "partials/form_fields.html" with form=review_form %}
+    <button class="btn btn-dark align-self-start">Gửi đánh giá</button>
+  </form>
+  {% elif user.is_authenticated %}
+  <p class="text-muted small">Bạn có thể đánh giá sau khi đơn hàng chứa sản phẩm này được giao thành công.</p>
+  {% endif %}
+  {% for review in reviews %}
+  <article class="product-review-card">
+    <div class="product-review-heading">
+      <strong>{{ review.user.display_name }}</strong>
+      <span class="stars">{{ review.rating|stars }}</span>
+      <time class="text-muted small" datetime="{{ review.created_at|date:'c' }}">{{ review.created_at|date:"d/m/Y" }}</time>
+    </div>
+    {% if review.comment %}<p>{{ review.comment }}</p>{% endif %}
+  </article>
+  {% empty %}<p class="text-muted">Chưa có đánh giá nào.</p>{% endfor %}
+</section>
+
+{% if related %}
+<section class="product-detail-section">
+  <div class="product-section-heading"><h2>Sản phẩm cùng danh mục</h2></div>
+  <div class="row g-3">{% for p in related %}{% include "partials/product_card.html" %}{% endfor %}</div>
+</section>
+{% endif %}
+{% endblock %}
+
+{% block extra_js %}
+<script>
+  const productGalleryMain = document.getElementById("product-gallery-main");
+  document.querySelectorAll("[data-gallery-thumb]").forEach((thumb) => {
+    thumb.addEventListener("click", () => {
+      productGalleryMain.src = thumb.dataset.galleryThumb;
+      document.querySelectorAll("[data-gallery-thumb]").forEach((item) => {
+        item.classList.toggle("is-active", item === thumb);
+        item.setAttribute("aria-pressed", item === thumb ? "true" : "false");
+      });
+    });
+  });
+
+  document.querySelectorAll(".product-specs-card").forEach((card) => {
+    const summary = card.querySelector("summary");
+    const label = card.querySelector(".product-specs-toggle-label");
+    card.addEventListener("toggle", () => {
+      label.textContent = card.open ? "Thu gọn" : "Xem thông số";
+      summary.setAttribute("aria-expanded", card.open ? "true" : "false");
+    });
+    summary.setAttribute("aria-expanded", card.open ? "true" : "false");
+  });
+</script>
+{% endblock %}

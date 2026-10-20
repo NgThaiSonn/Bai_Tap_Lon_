@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+{% load shop_extras %}
+{% block title %}So sánh sản phẩm · PCShop{% endblock %}
+{% block content %}
+<section class="compare-page" data-compare-ids="{{ compare_ids }}" data-compare-url="{% url 'catalog:compare' %}">
+  <nav aria-label="breadcrumb"><ol class="breadcrumb mb-3"><li class="breadcrumb-item"><a href="{% url 'catalog:home' %}">Trang chủ</a></li><li class="breadcrumb-item active">So sánh sản phẩm</li></ol></nav>
+  <div class="compare-heading">
+    <div><span class="text-uppercase small fw-bold text-danger">Chọn đúng linh kiện</span><h1>So sánh sản phẩm</h1><p>Đối chiếu giá, tồn kho và thông số trước khi quyết định.</p></div>
+    <a class="btn btn-outline-dark" href="{% url 'catalog:pc_builder' %}">Kiểm tra cấu hình PC</a>
+  </div>
+  {% if products %}
+  <div class="compare-table-wrap">
+    <table class="compare-table">
+      <thead><tr><th scope="col">Tiêu chí</th>
+        {% for p in products %}
+        <th scope="col" class="compare-product-heading">
+          <button type="button" class="compare-remove-item" data-compare-remove="{{ p.pk }}" aria-label="Bỏ {{ p.name }}">×</button>
+          <a href="{{ p.get_absolute_url }}"><img src="{{ p.image_src }}" alt="{{ p.name }}" loading="lazy"></a>
+          <a class="compare-product-name" href="{{ p.get_absolute_url }}">{{ p.name }}</a>
+        </th>
+        {% endfor %}
+      </tr></thead>
+      <tbody>
+        <tr><th scope="row">Thương hiệu</th>{% for p in products %}<td>{{ p.brand|default:"—" }}</td>{% endfor %}</tr>
+        <tr><th scope="row">Danh mục</th>{% for p in products %}<td>{{ p.category.name }}</td>{% endfor %}</tr>
+        <tr><th scope="row">Giá bán</th>{% for p in products %}<td class="compare-price">{{ p.price|vnd }}</td>{% endfor %}</tr>
+        <tr><th scope="row">Tình trạng</th>{% for p in products %}<td>{% if p.stock %}<span class="compare-stock">Còn hàng · {{ p.stock }}</span>{% else %}<span class="compare-out-stock">Tạm hết hàng</span>{% endif %}</td>{% endfor %}</tr>
+        {% for key in specification_keys %}
+        <tr><th scope="row">{{ key }}</th>{% for p in products %}<td>{{ p.specifications|get_item:key|default:"—" }}</td>{% endfor %}</tr>
+        {% endfor %}
+        <tr><th scope="row">Mua hàng</th>
+          {% for p in products %}<td><form method="post" action="{% url 'orders:cart_add' %}">{% csrf_token %}<input type="hidden" name="product_id" value="{{ p.pk }}"><input type="hidden" name="quantity" value="1"><button class="btn btn-sm btn-danger w-100" {% if not p.in_stock %}disabled{% endif %}>{% if p.in_stock %}Thêm vào giỏ{% else %}Hết hàng{% endif %}</button></form></td>{% endfor %}
+        </tr>
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <div class="compare-empty"><div aria-hidden="true">⇄</div><h2>Chưa có sản phẩm để so sánh</h2><p>Chọn tối đa 4 sản phẩm từ danh sách để xem thông số cạnh nhau.</p><a class="btn btn-danger" href="{% url 'catalog:product_list' %}">Khám phá sản phẩm</a></div>
+  {% endif %}
+</section>
+{% endblock %}
