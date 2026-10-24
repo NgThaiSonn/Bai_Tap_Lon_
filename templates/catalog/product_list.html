@@ -32,7 +32,7 @@
     </div>
   </header>
 
-  {% if kind_options and category.slug != "laptop" %}
+  {% if kind_options and category.slug != "laptop" and category.slug != "phu-kien-pc" %}
     <section class="catalog-shortcuts mb-3" aria-label="Danh mục con">
       <div class="catalog-strip-label">
         {% if is_component_category %}Chọn nhóm linh kiện{% else %}Danh mục con{% endif %}
@@ -51,7 +51,7 @@
     </section>
   {% endif %}
 
-  {% if brand_links and show_filter_panel and category.slug != "pc-gaming" %}
+  {% if brand_links and show_filter_panel and category.slug != "pc-gaming" and category.slug != "phu-kien-pc" %}
     <section class="brand-strip mb-3" aria-label="Thương hiệu phổ biến">
       <div class="catalog-strip-label">Thương hiệu phổ biến</div>
       <div class="brand-chip-row">
@@ -86,13 +86,15 @@
           {% if is_component_category %}
             Linh kiện PC · {{ active_kind_label }}
           {% elif category.slug == "laptop" %}
-            Laptop · lọc theo tiêu chí
+            Laptop{% if active_kind_label %} · {{ active_kind_label }}{% else %} · tất cả mẫu{% endif %}
+          {% elif category.slug == "phu-kien-pc" %}
+            Phụ kiện PC{% if active_kind_label %} · {{ active_kind_label }}{% else %} · tất cả phụ kiện{% endif %}
           {% else %}
             Tinh chỉnh kết quả
           {% endif %}
         </span>
         <h2>
-          {% if is_component_category or category.slug == "laptop" %}
+          {% if is_component_category or category.slug == "laptop" or category.slug == "phu-kien-pc" %}
             Chọn theo tiêu chí
           {% else %}
             Bộ lọc sản phẩm
@@ -112,12 +114,26 @@
     {% endif %}
 
     <div class="catalog-filter-grid{% if category.slug == 'laptop' %} laptop-filter-grid{% endif %}">
-      {% if kind_options and category.slug != "laptop" and not is_component_category %}
+      {% if kind_filter_options and not is_component_category %}
         <label class="filter-control">
-          <span>Loại sản phẩm</span>
-          <select name="kind" class="form-select">
-            <option value="">Tất cả</option>
-            {% for label, kind in kind_options %}
+          <span>
+            {% if category.slug == "laptop" %}Phân loại Laptop
+            {% elif category.slug == "phu-kien-pc" %}Loại phụ kiện
+            {% else %}Loại sản phẩm{% endif %}
+          </span>
+          <select
+            name="kind"
+            class="form-select"
+            {% if category.slug == "laptop" or category.slug == "phu-kien-pc" %}
+              onchange="this.form.querySelectorAll('[data-kind-facet]').forEach(function(field){field.selectedIndex=0;}); if(this.form.elements.brand){this.form.elements.brand.value='';}"
+            {% endif %}
+          >
+            <option value="">
+              {% if category.slug == "laptop" %}Tất cả laptop
+              {% elif category.slug == "phu-kien-pc" %}Tất cả phụ kiện
+              {% else %}Tất cả{% endif %}
+            </option>
+            {% for label, kind in kind_filter_options %}
               <option value="{{ kind }}" {% if filters.kind == kind %}selected{% endif %}>
                 {{ label }}
               </option>
@@ -126,7 +142,7 @@
         </label>
       {% endif %}
 
-      {% if category.slug != "laptop" and category.slug != "pc-gaming" %}
+      {% if category.slug != "laptop" and category.slug != "pc-gaming" and not hide_brand_select %}
         <label class="filter-control">
           <span>Thương hiệu</span>
           <select name="brand" class="form-select">
@@ -143,7 +159,11 @@
       {% for group in spec_filter_groups %}
         <label class="filter-control">
           <span>{{ group.label }}</span>
-          <select name="{{ group.name }}" class="form-select">
+          <select
+            name="{{ group.name }}"
+            class="form-select"
+            {% if category.slug == "laptop" or category.slug == "phu-kien-pc" %}data-kind-facet{% endif %}
+          >
             <option value="">{{ group.label }}</option>
             {% for option in group.options %}
               {% if group.paired_options %}
@@ -172,19 +192,6 @@
           </select>
         </label>
 
-        {% if category.slug == "laptop" and group.name == "gpu" %}
-          <label class="filter-control">
-            <span>Phân loại Laptop</span>
-            <select name="kind" class="form-select">
-              <option value="">Phân loại Laptop</option>
-              {% for label, kind in kind_options %}
-                <option value="{{ kind }}" {% if filters.kind == kind %}selected{% endif %}>
-                  {{ label }}
-                </option>
-              {% endfor %}
-            </select>
-          </label>
-        {% endif %}
       {% endfor %}
 
       <label class="filter-control laptop-extra-filter">
@@ -210,17 +217,19 @@
         </select>
       </label>
 
-      <label class="filter-stock">
-        <input
-          class="form-check-input"
-          type="checkbox"
-          name="in_stock"
-          value="1"
-          id="in_stock"
-          {% if filters.in_stock %}checked{% endif %}
-        >
-        <span>Hàng sẵn</span>
-      </label>
+      {% if not hide_stock_filter %}
+        <label class="filter-stock">
+          <input
+            class="form-check-input"
+            type="checkbox"
+            name="in_stock"
+            value="1"
+            id="in_stock"
+            {% if filters.in_stock %}checked{% endif %}
+          >
+          <span>Hàng sẵn</span>
+        </label>
+      {% endif %}
     </div>
 
     <details class="custom-price">

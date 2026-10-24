@@ -14,10 +14,33 @@ class ProductForm(BootstrapFormMixin, forms.ModelForm):
 
     class Meta:
         model = Product
-        fields = ["category", "name", "brand", "price", "stock", "description", "image", "image_url", "is_active"]
+        fields = [
+            "category",
+            "component_kind",
+            "name",
+            "brand",
+            "price",
+            "stock",
+            "description",
+            "image",
+            "image_url",
+            "is_active",
+        ]
         widgets = {"description": forms.Textarea(attrs={"rows": 3})}
 
-    field_order = ["category", "name", "brand", "price", "stock", "specs_text", "description", "image", "image_url", "is_active"]
+    field_order = [
+        "category",
+        "component_kind",
+        "name",
+        "brand",
+        "price",
+        "stock",
+        "specs_text",
+        "description",
+        "image",
+        "image_url",
+        "is_active",
+    ]
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)

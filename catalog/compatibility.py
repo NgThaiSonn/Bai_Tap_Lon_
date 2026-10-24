@@ -25,6 +25,11 @@ def component_kind(product):
     if product.category.slug != "linh-kien-pc":
         return None
 
+    explicit_kind = getattr(product, "component_kind", "")
+    if explicit_kind:
+        # The store uses "SSD" in category filters and "storage" in the PC builder.
+        return "storage" if explicit_kind == "ssd" else explicit_kind
+
     specs = product.specifications or {}
     lowered = {str(key).casefold() for key in specs}
     name = product.name.casefold()

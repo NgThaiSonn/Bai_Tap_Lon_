@@ -1,4 +1,5 @@
 """Logic lọc/sắp xếp sản phẩm dùng chung cho trang web và REST API."""
+import re
 from decimal import Decimal, InvalidOperation
 
 from django.db.models import Q
@@ -41,10 +42,16 @@ PRICE_RANGE_OPTIONS = {
         ("gaming-50m-60m", "50 triệu - 60 triệu", 50_000_000, 60_000_000),
         ("gaming-over-60m", "Trên 60 triệu", 60_000_000, None),
     ],
+    "phu-kien-pc": [
+        ("accessory-under-500k", "Dưới 500 nghìn", None, 500_000),
+        ("accessory-500k-1m", "500 nghìn - 1 triệu", 500_000, 1_000_000),
+        ("accessory-over-1m", "Từ 1 triệu", 1_000_000, None),
+    ],
     "cpu": [
-        ("cpu-under-3m", "Dưới 3 triệu", None, 3_000_000),
-        ("cpu-3m-7m", "3–7 triệu", 3_000_000, 7_000_000),
-        ("cpu-over-7m", "Từ 7 triệu", 7_000_000, None),
+        ("cpu-under-2m", "Dưới 2 triệu", None, 2_000_000),
+        ("cpu-2m-4m", "2 triệu - 4 triệu", 2_000_000, 4_000_000),
+        ("cpu-4m-8m", "4 triệu - 8 triệu", 4_000_000, 8_000_000),
+        ("cpu-over-8m", "Trên 8 triệu", 8_000_000, None),
     ],
     "mainboard": [
         ("board-under-2m", "Dưới 2 triệu", None, 2_000_000),
@@ -127,33 +134,96 @@ def filter_products(qs, params):
         "psu": Q(specifications__has_key="Công suất"),
         "psu-80plus": Q(specifications__icontains="80 Plus"),
         "ram": (
-            Q(specifications__has_key="Bus")
-            | Q(name__icontains="RAM")
-            | (Q(specifications__has_key="Dung lượng") & Q(specifications__has_key="Chuẩn"))
+            Q(name__icontains="RAM")
+            | (
+                Q(name__icontains="DDR")
+                & ~Q(specifications__has_key="Chipset")
+                & ~Q(specifications__has_key="Socket")
+                & ~Q(specifications__has_key="GPU")
+                & ~Q(specifications__has_key="VRAM")
+            )
+            | (
+                Q(specifications__has_key="Bus")
+                & (Q(specifications__icontains="DDR4") | Q(specifications__icontains="DDR5"))
+            )
         ),
         "ram-ddr4": Q(specifications__has_key="Bus") & (Q(name__icontains="DDR4") | Q(specifications__icontains="DDR4")),
         "ram-ddr5": Q(specifications__has_key="Bus") & (Q(name__icontains="DDR5") | Q(specifications__icontains="DDR5")),
-        "ssd": Q(name__icontains="SSD") | Q(name__icontains="NVMe") | (Q(specifications__has_key="Dung lượng") & ~Q(specifications__has_key="Bus")),
-        "ssd-nvme": (Q(specifications__has_key="Dung lượng") & ~Q(specifications__has_key="Bus")) & (Q(name__icontains="NVMe") | Q(specifications__icontains="NVMe")),
-        "ssd-sata": (Q(specifications__has_key="Dung lượng") & ~Q(specifications__has_key="Bus")) & (Q(name__icontains="SATA") | Q(specifications__icontains="SATA")),
+        "ssd": (
+            Q(name__icontains="SSD")
+            | Q(name__icontains="NVMe")
+            | Q(name__icontains="SATA")
+            | (
+                Q(specifications__has_key="Dung lượng")
+                & ~Q(specifications__has_key="Bus")
+                & ~Q(name__icontains="RAM")
+                & ~Q(specifications__icontains="DDR")
+            )
+        ),
+        "ssd-nvme": (
+            (Q(name__icontains="NVMe") | Q(specifications__icontains="NVMe"))
+            & ~Q(name__icontains="RAM")
+            & ~Q(specifications__icontains="DDR")
+        ),
+        "ssd-sata": (
+            (Q(name__icontains="SATA") | Q(specifications__icontains="SATA"))
+            & ~Q(name__icontains="RAM")
+            & ~Q(specifications__icontains="DDR")
+        ),
         "vga": Q(specifications__has_key="GPU") | Q(specifications__has_key="VRAM"),
         "vga-nvidia": Q(name__icontains="GeForce") | Q(name__icontains="RTX"),
         "vga-amd": Q(name__icontains="Radeon") | Q(name__icontains="RX"),
-        "mouse": Q(name__icontains="Chuột"),
-        "keyboard": Q(name__icontains="Bàn phím"),
+        "mouse": Q(name__icontains="Chuột") | Q(name__icontains="Mouse"),
+        "keyboard": Q(name__icontains="Bàn phím") | Q(name__icontains="Keyboard"),
         "camera": Q(name__icontains="Webcam") | Q(name__icontains="Camera"),
-        "headset": Q(name__icontains="Tai nghe"),
-        "microphone": Q(name__icontains="Micro"),
+        "headset": Q(name__icontains="Tai nghe") | Q(name__icontains="Headset") | Q(name__icontains="Headphone"),
+        "microphone": Q(name__icontains="Micro") | Q(name__icontains="Microphone"),
     }
-    if kind in kind_filters:
+    component_kind_aliases = {
+        "mainboard-intel": "mainboard",
+        "mainboard-amd": "mainboard",
+        "vga-nvidia": "vga",
+        "vga-amd": "vga",
+        "ram-ddr4": "ram",
+        "ram-ddr5": "ram",
+        "ssd-nvme": "ssd",
+        "ssd-sata": "ssd",
+        "psu-80plus": "psu",
+    }
+    if kind in {"cpu", "mainboard", "vga", "ram", "ssd", "psu"}:
+        legacy_match = kind_filters[kind]
+        qs = qs.filter(category__slug="linh-kien-pc").filter(
+            Q(component_kind=kind) | (Q(component_kind="") & legacy_match)
+        )
+    elif kind in component_kind_aliases:
+        parent_kind = component_kind_aliases[kind]
+        legacy_match = kind_filters[parent_kind]
+        qs = qs.filter(category__slug="linh-kien-pc").filter(
+            Q(component_kind=parent_kind) | (Q(component_kind="") & legacy_match)
+        )
+        qs = qs.filter(kind_filters[kind])
+    elif kind in kind_filters:
         qs = qs.filter(kind_filters[kind])
     elif kind in {"laptop-office", "laptop-gaming", "laptop-creator"}:
         qs = qs.filter(category__slug="laptop")
         if kind == "laptop-office":
-            qs = qs.exclude(Q(name__icontains="Gaming") | Q(name__icontains="Creator"))
+            qs = qs.exclude(
+                Q(name__icontains="Gaming") | Q(name__icontains="TUF") | Q(name__icontains="Creator")
+                | Q(name__icontains="ProArt") | Q(name__icontains="Studio")
+            )
         else:
-            keyword = {"laptop-gaming": "Gaming", "laptop-creator": "Creator"}[kind]
-            qs = qs.filter(Q(name__icontains=keyword) | Q(description__icontains=keyword))
+            keywords = {
+                "laptop-gaming": ("Gaming", "Katana", "TUF"),
+                "laptop-creator": ("Creator", "ProArt", "Studio"),
+            }[kind]
+            kind_match = Q()
+            for keyword in keywords:
+                kind_match |= (
+                    Q(name__icontains=keyword)
+                    | Q(description__icontains=keyword)
+                    | Q(specifications__icontains=keyword)
+                )
+            qs = qs.filter(kind_match)
     elif kind in {"office-pc", "mini-pc"}:
         qs = qs.filter(category__slug="pc-van-phong")
         if kind == "mini-pc":
@@ -202,14 +272,18 @@ def filter_products(qs, params):
     laptop_purpose = (params.get("laptop_purpose") or "").strip()
     if laptop_purpose:
         qs = qs.filter(category__slug="laptop")
+        gaming_match = Q()
+        creator_match = Q()
+        for keyword in ("gaming", "katana", "tuf"):
+            gaming_match |= Q(name__icontains=keyword) | Q(description__icontains=keyword)
+        for keyword in ("creator", "proart", "studio"):
+            creator_match |= Q(name__icontains=keyword) | Q(description__icontains=keyword)
         if laptop_purpose == "Văn phòng":
-            qs = qs.exclude(
-                Q(name__icontains="gaming") | Q(name__icontains="creator") | Q(name__icontains="proart")
-            )
+            qs = qs.exclude(gaming_match | creator_match)
         elif laptop_purpose == "Gaming":
-            qs = qs.filter(Q(name__icontains="gaming") | Q(description__icontains="gaming"))
+            qs = qs.filter(gaming_match)
         elif laptop_purpose == "Creator":
-            qs = qs.filter(Q(name__icontains="creator") | Q(name__icontains="proart") | Q(name__icontains="studio"))
+            qs = qs.filter(creator_match)
 
     style = (params.get("style") or "").strip()
     style_keywords = {
@@ -249,10 +323,20 @@ def filter_products(qs, params):
         "display": ("Màn hình", "Kích thước", "Tấm nền"),
         "gpu": ("VGA", "GPU", "VRAM", "Đồ họa"),
         "gpu_family": ("VGA", "GPU", "Đồ họa"),
-        "display_size": ("Kích thước màn hình", "Màn hình"),
+        "display_size": ("Kích thước màn hình", "Kích thước", "Màn hình"),
+        "dpi": ("DPI", "DPI tối đa"),
+        "sensor": ("Cảm biến", "Sensor"),
+        "switch": ("Switch", "Loại switch"),
+        "layout": ("Layout", "Số phím"),
+        "audio": ("Âm thanh", "Audio"),
+        "pickup_pattern": ("Hướng thu", "Pickup pattern"),
+        "lighting": ("Đèn", "Đèn nền", "Lighting"),
+        "micro_support": ("Micro", "Microphone"),
+        "accessory_style": ("Kiểu", "Loại", "Type"),
         "purpose": ("Mục đích", "Sử dụng"),
-        "resolution": ("Độ phân giải", "Màn hình"),
+        "resolution": ("Độ phân giải", "Độ phân giải màn hình", "Resolution", "Màn hình"),
         "refresh": ("Tần số quét", "Màn hình"),
+        "panel": ("Tấm nền", "Panel"),
         "os": ("Hệ điều hành", "OS"),
         "socket": ("Socket",),
         "cpu_cores": ("Số nhân / luồng",),
@@ -262,18 +346,117 @@ def filter_products(qs, params):
         "ram_type": ("RAM hỗ trợ", "Chuẩn RAM", "Chuẩn", "RAM"),
         "form_factor": ("Kích thước", "Form Factor"),
         "vram": ("VRAM",),
+        "gpu_purpose": ("Nhu cầu sử dụng", "Mục đích sử dụng", "Mục đích"),
+        "gpu_memory_type": ("VRAM", "Kiểu bộ nhớ", "Loại bộ nhớ", "Memory Type", "GPU"),
+        "memory_bus_width": ("Giao diện bộ nhớ", "Bus bộ nhớ", "Memory Bus"),
+        "ram_slots": ("Số khe cắm RAM", "Số khe RAM", "Khe RAM", "DIMM"),
+        "ram_ecc": ("Tự sửa lỗi", "ECC", "Error Correction"),
+        "ram_lighting": ("Đèn LED", "Đèn", "Lighting"),
         "interface": ("Giao tiếp", "Bus bộ nhớ", "Chuẩn"),
-        "capacity": ("Dung lượng", "VRAM"),
+        "capacity": ("Dung lượng", "VRAM", "RAM"),
         "memory_bus": ("Bus",),
-        "latency": ("Độ trễ",),
-        "storage_type": ("Loại ổ cứng", "Giao tiếp", "Chuẩn"),
+        "latency": ("Độ trễ", "Latency"),
+        "storage_type": ("Loại ổ cứng", "Ổ cứng", "Giao tiếp", "Chuẩn"),
+        "ssd_interface": ("Giao diện PCIe", "Giao tiếp", "Chuẩn", "Ổ cứng"),
         "wattage": ("Công suất",),
-        "efficiency": ("Hiệu suất",),
-        "modular": ("Kiểu dây",),
+        "efficiency": ("Hiệu suất", "Chuẩn"),
+        "modular": ("Kiểu dây", "Modular"),
+        "psu_size": ("Kích cỡ nguồn", "Kích thước nguồn", "Form Factor nguồn"),
     }
     for attribute, keys in spec_filter_keys.items():
         value = (params.get(attribute) or "").strip()
         if value:
+            if attribute == "resolution":
+                resolution_aliases = {
+                    "4k": ("4k", "uhd", "3840"),
+                    "2k": ("2k", "qhd", "1440p", "2560"),
+                    "full hd": ("full hd", "fhd", "1080p", "1920"),
+                    "wuxga": ("wuxga", "1920 x 1200", "1920x1200"),
+                    "3k": ("3k", "2880", "3200"),
+                }
+                aliases = resolution_aliases.get(value.casefold())
+                if aliases:
+                    resolution_match = Q()
+                    for alias in aliases:
+                        resolution_match |= Q(name__icontains=alias)
+                        for key in keys:
+                            resolution_match |= Q(**{f"specifications__{key}__icontains": alias})
+                    qs = qs.filter(resolution_match)
+                    continue
+
+            if attribute == "dpi":
+                digits = re.sub(r"\D", "", value)
+                dpi_aliases = {value}
+                if digits:
+                    dpi_aliases.update({
+                        digits,
+                        f"{int(digits):,}",
+                        f"{int(digits):,}".replace(",", "."),
+                        f"{int(digits):,}".replace(",", " "),
+                    })
+                dpi_match = Q()
+                for alias in dpi_aliases:
+                    for key in keys:
+                        dpi_match |= Q(**{f"specifications__{key}__icontains": alias})
+                qs = qs.filter(dpi_match)
+                continue
+
+            if attribute == "display_size":
+                size_match = Q()
+                for key in keys:
+                    size_match |= Q(**{f"specifications__{key}__icontains": f"{value} inch"})
+                    size_match |= Q(**{f"specifications__{key}__icontains": f"{value}in"})
+                    size_match |= Q(**{f"specifications__{key}__icontains": value})
+                qs = qs.filter(size_match)
+                continue
+
+            if attribute == "ram_slots":
+                slot_match = Q()
+                for key in keys:
+                    slot_match |= Q(**{f"specifications__{key}__icontains": value})
+                qs = qs.filter(slot_match)
+                continue
+
+            if attribute == "ssd_interface":
+                generation = re.search(r"(?:PCIe?\s*[- ]?\s*(?:Express\s*)?(?:Gen\s*)?|Gen\s*)([345])(?:\.0)?", value, re.IGNORECASE)
+                aliases = [value]
+                if generation:
+                    number = generation.group(1)
+                    aliases.extend((
+                        f"PCIe {number}.0",
+                        f"PCIe Gen {number}",
+                        f"PCIe Gen{number}",
+                        f"PCI Express {number}.0",
+                    ))
+                interface_match = Q()
+                for alias in set(aliases):
+                    for key in keys:
+                        interface_match |= Q(**{f"specifications__{key}__icontains": alias})
+                qs = qs.filter(interface_match)
+                continue
+
+            if attribute == "form_factor":
+                normalized = value.casefold().replace("µ", "u")
+                form_factor_match = Q(name__icontains=value)
+                for key in keys:
+                    form_factor_match |= Q(**{f"specifications__{key}__icontains": value})
+                if normalized in {"micro-atx", "matx", "micro atx"}:
+                    for alias in ("micro-atx", "micro atx", "matx"):
+                        form_factor_match |= Q(name__icontains=alias)
+                        for key in keys:
+                            form_factor_match |= Q(**{f"specifications__{key}__icontains": alias})
+                    qs = qs.filter(form_factor_match)
+                elif normalized == "atx":
+                    micro_atx = Q(name__icontains="micro-atx") | Q(name__icontains="micro atx") | Q(name__icontains="matx")
+                    for key in keys:
+                        micro_atx |= Q(**{f"specifications__{key}__icontains": "micro-atx"})
+                        micro_atx |= Q(**{f"specifications__{key}__icontains": "micro atx"})
+                        micro_atx |= Q(**{f"specifications__{key}__icontains": "matx"})
+                    qs = qs.filter(form_factor_match).exclude(micro_atx)
+                else:
+                    qs = qs.filter(form_factor_match)
+                continue
+
             # A pipe-separated value means every token must match, allowing
             # grouped options such as "16GB|DDR5" to match RAM specs in any order.
             terms = [term.strip() for term in value.split("|") if term.strip()]
@@ -316,8 +499,15 @@ def filter_products(qs, params):
 
     touch = (params.get("touch") or "").strip()
     if touch in {"yes", "no"}:
-        has_touch = Q(**{"specifications__Màn hình__icontains": "cảm ứng"})
-        qs = qs.filter(has_touch if touch == "yes" else ~has_touch)
+        has_touch = (
+            Q(**{"specifications__Màn hình__icontains": "cảm ứng"})
+            | Q(**{"specifications__Màn hình__icontains": "touch"})
+        )
+        if touch == "yes":
+            qs = qs.filter(has_touch)
+        else:
+            has_screen = Q(**{"specifications__Màn hình__isnull": False})
+            qs = qs.filter(has_screen).exclude(has_touch)
 
     if params.get("in_stock") in ("1", "true", "on"):
         qs = qs.filter(stock__gt=0)

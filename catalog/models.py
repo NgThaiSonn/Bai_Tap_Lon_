@@ -1,4 +1,5 @@
 from django.conf import settings
+from django.core.exceptions import ValidationError
 from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
 from django.db.models import Avg
@@ -44,7 +45,25 @@ class Category(models.Model):
 
 
 class Product(models.Model):
+    COMPONENT_KIND_CHOICES = (
+        ("cpu", "CPU"),
+        ("mainboard", "Mainboard"),
+        ("vga", "VGA"),
+        ("ram", "RAM"),
+        ("ssd", "SSD"),
+        ("psu", "Nguồn (PSU)"),
+    )
+
     category = models.ForeignKey(Category, on_delete=models.PROTECT, related_name="products", verbose_name="Danh mục")
+    component_kind = models.CharField(
+        "Danh mục con / nhóm linh kiện",
+        max_length=20,
+        choices=COMPONENT_KIND_CHOICES,
+        blank=True,
+        default="",
+        db_index=True,
+        help_text="Chọn nhóm này cho sản phẩm thuộc danh mục Linh kiện PC.",
+    )
     name = models.CharField("Tên linh kiện", max_length=200)
     slug = models.SlugField(max_length=220, unique=True, blank=True)
     brand = models.CharField("Thương hiệu", max_length=100, db_index=True)
@@ -68,6 +87,18 @@ class Product(models.Model):
         if not self.slug:
             self.slug = unique_slug(Product, self.name, self)
         super().save(*args, **kwargs)
+
+    def clean(self):
+        super().clean()
+        category_slug = (
+            Category.objects.filter(pk=self.category_id).values_list("slug", flat=True).first()
+            if self.category_id
+            else None
+        )
+        if self.component_kind and category_slug and category_slug != "linh-kien-pc":
+            raise ValidationError({
+                "component_kind": "Danh mục con này chỉ dùng cho danh mục Linh kiện PC."
+            })
 
     def get_absolute_url(self):
         return reverse("catalog:product_detail", kwargs={"slug": self.slug})

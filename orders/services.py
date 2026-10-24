@@ -82,7 +82,9 @@ def change_status(order, new_status):
     return order
 
 
+@transaction.atomic
 def cancel_by_customer(order, user):
+    order = Order.objects.select_for_update().get(pk=order.pk)
     if order.user_id != user.id:
         raise OrderError("Bạn không có quyền hủy đơn hàng này.")
     if not order.can_cancel_by_customer:
