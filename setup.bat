@@ -1,5 +1,5 @@
 @echo off
-REM Cai dat & chay du an tren Windows: double-click hoac chay setup.bat
+REM
 python -m venv venv
 call venv\Scripts\activate
 pip install -r requirements.txt
